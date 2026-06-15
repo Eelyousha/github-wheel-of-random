@@ -14,6 +14,7 @@ type Config struct {
 	GitHubToken   string
 	BackendPort   string
 	CrawlInterval time.Duration
+	AdminKey      string
 }
 
 func Load() (*Config, error) {
@@ -37,6 +38,7 @@ func Load() (*Config, error) {
 		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
 		BackendPort:   getEnv("BACKEND_PORT", "8000"),
 		CrawlInterval: interval,
+		AdminKey:      getEnv("ADMIN_KEY", ""),
 	}, nil
 }
 

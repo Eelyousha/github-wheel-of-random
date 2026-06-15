@@ -5,6 +5,7 @@ export default function Admin() {
   const [status, setStatus] = useState<{ last_crawl: string | null; project_count: number; is_crawling: boolean } | null>(null);
   const [crawling, setCrawling] = useState(false);
   const [filters, setFilters] = useState<{ languages: string[]; topics: string[] } | null>(null);
+  const [adminKey, setAdminKey] = useState("");
 
   const fetchStatus = async () => {
     try {
@@ -32,7 +33,7 @@ export default function Admin() {
   const handleCrawl = async () => {
     setCrawling(true);
     try {
-      await triggerCrawl();
+      await triggerCrawl(adminKey);
       setTimeout(fetchStatus, 1000);
     } catch (err) {
       console.error(err);
@@ -47,9 +48,18 @@ export default function Admin() {
 
       <section style={{ marginBottom: 32 }}>
         <h2>Crawler Control</h2>
-        <button onClick={handleCrawl} disabled={crawling || (status?.is_crawling ?? false)}>
-          {crawling || status?.is_crawling ? "Crawling..." : "Crawl Now"}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+          <input
+            type="password"
+            placeholder="Admin key"
+            value={adminKey}
+            onChange={(e) => setAdminKey(e.target.value)}
+            style={{ width: 200 }}
+          />
+          <button onClick={handleCrawl} disabled={crawling || (status?.is_crawling ?? false) || !adminKey}>
+            {crawling || status?.is_crawling ? "Crawling..." : "Crawl Now"}
+          </button>
+        </div>
         {status && (
           <div style={{ marginTop: 12 }}>
             <p>Projects in DB: <strong>{status.project_count}</strong></p>

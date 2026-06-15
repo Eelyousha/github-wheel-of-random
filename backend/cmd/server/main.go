@@ -47,7 +47,7 @@ func main() {
 	scheduler.Start(ctx)
 	defer scheduler.Stop()
 
-	app := api.NewRouter(database.Pool, crawlTrigger, statusH)
+	app := api.NewRouter(database.Pool, crawlTrigger, statusH, cfg.AdminKey)
 
 	go func() {
 		if err := app.Listen(":" + cfg.BackendPort); err != nil {

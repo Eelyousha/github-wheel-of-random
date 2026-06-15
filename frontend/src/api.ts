@@ -74,7 +74,8 @@ export function getStatus(): Promise<Status> {
   return fetchJSON<Status>("/api/v1/status");
 }
 
-export async function triggerCrawl(): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/v1/crawl`, { method: "POST" });
+export async function triggerCrawl(adminKey?: string): Promise<void> {
+  const params = adminKey ? `?key=${encodeURIComponent(adminKey)}` : "";
+  const res = await fetch(`${API_BASE}/api/v1/crawl${params}`, { method: "POST" });
   if (!res.ok) throw new Error(`crawl trigger failed: ${res.status}`);
 }

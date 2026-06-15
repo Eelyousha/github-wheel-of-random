@@ -59,7 +59,6 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}()
 
 	log.Printf("scheduler: started, interval=%s", s.interval)
-	s.crawl(ctx)
 }
 
 func (s *Scheduler) Stop() {

@@ -8,13 +8,13 @@ import (
 	"wheel-of-random/internal/api/middleware"
 )
 
-func NewRouter(pool *pgxpool.Pool, crawlTrigger chan struct{}, statusHandler *handler.StatusHandler) *fiber.App {
+func NewRouter(pool *pgxpool.Pool, crawlTrigger chan struct{}, statusHandler *handler.StatusHandler, adminKey string) *fiber.App {
 	app := fiber.New()
 
 	app.Use(middleware.CORS())
 
 	projectHandler := handler.NewProjectHandler(pool)
-	crawlHandler := handler.NewCrawlHandler(crawlTrigger)
+	crawlHandler := handler.NewCrawlHandler(crawlTrigger, adminKey)
 
 	api := app.Group("/api/v1")
 
