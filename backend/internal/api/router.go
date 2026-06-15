@@ -9,7 +9,9 @@ import (
 )
 
 func NewRouter(pool *pgxpool.Pool, crawlTrigger chan struct{}, statusHandler *handler.StatusHandler, adminKey string) *fiber.App {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+	})
 
 	app.Use(middleware.CORS())
 
