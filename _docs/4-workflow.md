@@ -3,8 +3,7 @@
 ## Branching
 
 - `main` — stable, deployable
-- `develop` — integration branch
-- `feat/<name>` — feature branches (merged to `develop`)
+- `feat/<name>` — feature branches (merged to `main`)
 
 ## Commit Convention
 
@@ -21,25 +20,20 @@ fix(api): clamp random limit to max 100
 docs(plan): update milestones with completed tasks
 ```
 
-## PR Workflow
-
-1. Branch from `develop`
-2. Implement changes
-3. Open PR → `develop`
-4. Squash-merge when approved
-5. Merge `develop` → `main` for release
-
-## Deploy Automation (Planned)
+## CI/CD Pipeline
 
 ### Frontend → GitHub Pages
-- Push to `main` → GitHub Action builds frontend (`npm ci && npm run build`)
-- Deploys `dist/` to `gh-pages` branch
-- Requires: `VITE_API_BASE_URL` as repository secret
+- **Trigger:** Push to `main` with changes in `frontend/**` or `.github/workflows/deploy-frontend.yml`
+- **Secret needed:** `VITE_API_BASE_URL` (production backend URL, e.g. `https://my-app.onrender.com`)
+- **Env passed at build time:** `VITE_BASE_URL=/github-wheel-of-random/`
 
-### Backend → Railway / Fly.io
-- Push to `main` → GitHub Action builds Docker image
-- Pushes to container registry
-- Triggers deploy on Railway or Fly.io (via webhook or CLI)
+### Backend → GHCR + Render.com
+- **Trigger:** Push to `main` with changes in `backend/**` or `.github/workflows/deploy-backend.yml`
+- Builds Docker image → pushes to `ghcr.io/<owner>/github-wheel-of-random-backend:latest`
+- (Optional) Triggers Render Deploy Hook if `RENDER_DEPLOY_HOOK_URL` secret is set
+
+### Manual Runs
+Both workflows support `workflow_dispatch` — can be triggered manually from GitHub Actions UI.
 
 ## Local Development
 
@@ -53,3 +47,10 @@ cd backend && go run ./cmd/server/
 # Frontend dev server with hot reload
 cd frontend && npm run dev
 ```
+
+## Environment Setup
+
+1. Copy `.env.example` → `.env`
+2. Fill in `SUPABASE_URL`, `SUPABASE_KEY`, optionally `GITHUB_TOKEN`
+3. For frontend dev, `VITE_API_BASE_URL=http://localhost:8000`
+4. Run with Docker Compose or individual dev servers

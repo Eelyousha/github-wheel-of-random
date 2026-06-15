@@ -5,9 +5,9 @@
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌────────────────────┐
 │   Frontend (React)  │────▶│   Backend (Go/Fiber) │────▶│  Supabase (PG)    │
-│   GitHub Pages      │     │   Railway / VPS      │     │                   │
-│   Docker container  │     │   Docker container   │     │  Managed service  │
-│   Static SPA        │     │   REST API + Crawler │     │                   │
+│   GitHub Pages      │     │   Render.com         │     │                   │
+│   Static SPA        │     │   Docker container   │     │  Managed service  │
+│                     │     │   REST API + Crawler │     │                   │
 └─────────────────────┘     └──────────┬───────────┘     └────────────────────┘
                                         │
                                 ┌───────▼────────┐
@@ -24,7 +24,7 @@ Three independently containerized components communicating over HTTP. Each can b
 | Component   | Technology                   | Hosting                          |
 |-------------|------------------------------|----------------------------------|
 | **Frontend**| React + Vite (TypeScript)   | GitHub Pages                     |
-| **Backend** | Go (Fiber)                   | Railway / Fly.io / VPS           |
+| **Backend** | Go (Fiber)                   | Render.com                       |
 | **Database**| Supabase (PostgreSQL)        | Managed (Supabase Cloud)         |
 | **Cache**   | Redis (future)               | Upstash / Docker                 |
 | **Crawler** | Go (built-in, `robfig/cron`) | Embedded in Backend process      |
@@ -58,7 +58,7 @@ github-wheel-of-random/
 │   │   └── config.go              # Env loader
 │   ├── go.mod / go.sum
 │   ├── Dockerfile                 # Multi-stage Alpine
-│   └── entrypoint.sh              # Startup script
+│   └── entrypoint.sh              # Startup script (DNS workaround)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
@@ -68,9 +68,10 @@ github-wheel-of-random/
 │   │   ├── pages/
 │   │   │   ├── Home.tsx           # Wheel page with filters + result
 │   │   │   └── Admin.tsx          # Crawl trigger, status, filter list
+│   │   ├── hooks/                 # Custom hooks (future)
 │   │   ├── api.ts                 # Typed HTTP client
 │   │   ├── vite-env.d.ts          # Env type declarations
-│   │   ├── App.tsx                # Router setup
+│   │   ├── App.tsx                # Router setup (BrowserRouter with basename)
 │   │   ├── main.tsx               # Entry point
 │   │   └── index.css              # Minimal styles
 │   ├── index.html
@@ -78,7 +79,11 @@ github-wheel-of-random/
 │   ├── tsconfig.json
 │   ├── Dockerfile                 # Build → nginx-alpine
 │   └── nginx.conf                 # Proxy /api/ → backend
-├── docker-compose.yml             # backend + frontend + redis
+├── .github/
+│   └── workflows/
+│       ├── deploy-frontend.yml    # Build & deploy to GitHub Pages
+│       └── deploy-backend.yml     # Build Docker image & push to GHCR
+├── docker-compose.yml             # backend + frontend + redis (local dev)
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -170,6 +175,6 @@ CREATE INDEX idx_projects_topics ON projects USING GIN (topics);
 - Respects rate limits; uses `GITHUB_TOKEN` if provided (5000 req/h) else anonymous (60 req/h)
 - Upserts via `INSERT ... ON CONFLICT (full_name) DO UPDATE SET ...`
 - First crawl runs immediately on startup, then repeats every `CRAWL_INTERVAL`
-- Manual trigger via `POST /api/v1/crawl` (non-blocking, returns 202)
+- Manual trigger via `POST /api/v1/crawl` (non-blocking, returns 202 or 429 if already running)
 - Concurrency guard: skips if already crawling
 - Scheduler uses `robfig/cron/v3` with `@every <interval>` syntax

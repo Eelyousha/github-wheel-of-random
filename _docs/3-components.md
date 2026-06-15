@@ -8,7 +8,7 @@
 
 **Purpose:** Single-page application hosted on GitHub Pages. Users spin the wheel, configure filters, and view results.
 
-**Runtime:** Static files served via nginx (locally) or GitHub Pages.
+**Runtime:** Static files served via GitHub Pages (production) or nginx (locally via Docker Compose).
 
 **Key dependencies:**
 - `react` + `react-dom` — UI library
@@ -41,6 +41,14 @@
 **API client** (`api.ts`):
 - Typed functions: `getProjects`, `getRandomProjects`, `getFilters`, `getStatus`, `triggerCrawl`
 - Base URL from `VITE_API_BASE_URL` env var (default `http://localhost:8000`)
+
+**Router config** (`App.tsx`):
+- Uses `BrowserRouter` with `basename={import.meta.env.BASE_URL}`
+- `import.meta.env.BASE_URL` comes from Vite's `base` config option
+- On GitHub Pages: `/github-wheel-of-random/`, locally: `/`
+
+**Vite config** (`vite.config.ts`):
+- `base` defaults to `/github-wheel-of-random/` (can be overridden via `VITE_BASE_URL` env)
 
 ---
 
@@ -78,7 +86,7 @@
 - **Scheduler:** `robfig/cron/v3` job every `CRAWL_INTERVAL` (default `6h`)
 - **First run:** Immediately on startup
 - **Trigger:** Channel-based manual trigger (`POST /api/v1/crawl`)
-- **Concurrency guard:** Atomic boolean flag, skips if already running
+- **Concurrency guard:** Atomic boolean flag, skips if already running; returns 429 if crawl in progress
 - **GitHub client:** `GET /search/repositories?q=stars:>1000&sort=stars&per_page=100`
   - Paginates through up to 10 pages
   - Uses `GITHUB_TOKEN` if available (5000 req/h), else anonymous (60 req/h)
@@ -87,6 +95,7 @@
 
 **DB layer** (`internal/db/supabase.go`):
 - pgx connection pool with SSL
+- Override DNS resolver to use Google DNS (8.8.8.8) for container compatibility
 - Embedded SQL migration runner (`//go:embed migrations/*.sql`)
 - Single migration: creates `projects` table + 3 indexes (language, stars DESC, GIN on topics)
 
@@ -174,6 +183,23 @@ services:
 **nginx config** (frontend → backend proxy):
 - `/api/` requests proxied to `http://backend:8000`
 - All other routes → `index.html` (SPA fallback)
+
+## CI/CD — GitHub Actions
+
+### Frontend Deploy (`deploy-frontend.yml`)
+- **Trigger:** push to `main` (changes in `frontend/` or workflow)
+- **Steps:**
+  1. `actions/checkout`, `actions/setup-node`, `npm ci`
+  2. `npm run build` with `VITE_API_BASE_URL` (from secrets) and `VITE_BASE_URL=/github-wheel-of-random/`
+  3. `actions/configure-pages`, `actions/upload-pages-artifact`, `actions/deploy-pages`
+
+### Backend Deploy (`deploy-backend.yml`)
+- **Trigger:** push to `main` (changes in `backend/` or workflow)
+- **Steps:**
+  1. `actions/checkout`, `docker/setup-buildx-action`
+  2. Login to GHCR via `docker/login-action`
+  3. Build and push image with tags `latest` + short sha
+  4. (Optional) Trigger Render Deploy Hook via curl
 
 ## Communication
 

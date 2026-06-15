@@ -19,7 +19,7 @@
   - `List` — paginated with filters: language, topic, min_stars, page, limit
   - `Random` — random selection with same filters, `ORDER BY RANDOM() LIMIT X`
   - `GetFilters` — distinct languages and topics from DB
-- **Crawl handler** (`internal/api/handler/crawl.go`) — triggers crawl via channel, returns 202
+- **Crawl handler** (`internal/api/handler/crawl.go`) — triggers crawl via channel, returns 202 or 429
 - **Status handler** (`internal/api/handler/status.go`) — last crawl timestamp, project count, is_crawling flag
 - **CORS middleware** (`internal/api/middleware/cors.go`)
 - **Router** (`internal/api/router.go`) — all routes under `/api/v1`
@@ -27,6 +27,7 @@
 - **Scheduler** (`internal/crawler/scheduler.go`) — `robfig/cron`, configurable interval, first crawl on startup, manual trigger via channel, concurrency guard
 - **Models** (`internal/model/project.go`) — Project, ProjectFilter, Status, Filters types
 - **Dockerfile** — multi-stage Alpine build, ~15MB binary
+- **entrypoint.sh** — DNS workaround for Windows/VPN environments
 
 ### M3 ✅ — Frontend Core (Done)
 - **API client** (`api.ts`) — typed fetch wrapper for all endpoints
@@ -40,15 +41,21 @@
 - **ProjectCard** (`components/ProjectCard.tsx`) — avatar, GitHub link, stars, language badge, topic tags
 - **Home page** (`pages/Home.tsx`) — filters + spin + wheel + winner card
 - **Admin page** (`pages/Admin.tsx`) — crawl trigger button, status display, available filters list
-- **App.tsx** — BrowserRouter with `/` and `/admin` routes
+- **App.tsx** — BrowserRouter with `basename={import.meta.env.BASE_URL}`
+- **vite-env.d.ts** — typed env variables (`VITE_API_BASE_URL`, `VITE_BASE_URL`)
 - **index.css** — minimal global styles
 - **Dockerfile** + **nginx.conf** — build → nginx-alpine static serve with `/api/` reverse proxy
 
-### M4 🔄 — Polish & Deploy (In Progress)
-- GitHub Pages deployment workflow (GitHub Actions)
-- Backend deployment guide (Railway / Fly.io)
-- Production checklist review
-- Load testing
+### M4 ✅ — Deploy & CI/CD (Done)
+- GitHub Actions: frontend deploy to GitHub Pages
+  - Builds with `npm ci && npm run build`, passes `VITE_API_BASE_URL` and `VITE_BASE_URL`
+  - Deploys `dist/` to GitHub Pages via official actions
+- GitHub Actions: backend Docker image build & push
+  - Builds multi-stage Docker image via BuildKit with layer caching
+  - Pushes to `ghcr.io/<owner>/github-wheel-of-random-backend` (tags: `latest` + sha)
+  - Triggers Render.com deploy via Deploy Hook (optional, requires `RENDER_DEPLOY_HOOK_URL` secret)
+- Backend hosted on Render.com via Docker (pulls image from GHCR)
+- Frontend connected to production backend via `VITE_API_BASE_URL` secret
 
 ### M5 ⏳ — Future Improvements
 - Redis caching layer
@@ -57,10 +64,13 @@
 - Pagination for Admin page project list
 - Search within projects
 - Dark mode
+- Request validation and health check endpoint
+- Rate limiting on crawl endpoint
+- Structured logging (slog or zerolog)
 
 ## Files Created
 
-### Backend — 9 files
+### Backend — 10 files
 
 ```
 backend/
@@ -90,7 +100,7 @@ backend/
 └── entrypoint.sh
 ```
 
-### Frontend — 11 files
+### Frontend — 12 files
 
 ```
 frontend/
@@ -102,9 +112,10 @@ frontend/
 │   ├── pages/
 │   │   ├── Home.tsx                             # Main page
 │   │   └── Admin.tsx                            # Admin panel
+│   ├── hooks/                                   # (empty, future use)
 │   ├── api.ts                                   # HTTP client
 │   ├── vite-env.d.ts                            # Env types
-│   ├── App.tsx                                  # Router
+│   ├── App.tsx                                  # Router with basename
 │   ├── main.tsx                                 # Entry
 │   └── index.css                                # Styles
 ├── index.html
@@ -114,44 +125,32 @@ frontend/
 └── nginx.conf
 ```
 
-### Infrastructure — 3 files
+### Infrastructure — 5 files
 
 ```
 ├── docker-compose.yml                           # Local dev
 ├── .env.example                                 # Env template
-└── .gitignore
+├── .gitignore
+└── .github/workflows/
+    ├── deploy-frontend.yml                      # GitHub Pages deploy
+    └── deploy-backend.yml                       # Docker build + Render deploy
 ```
 
-## Next Steps
+## Deployment
 
-### 1. GitHub Actions — Deploy Frontend to GitHub Pages
-Create `.github/workflows/deploy-frontend.yml`:
-- Trigger: push to `main`
-- Build frontend with `npm ci && npm run build`
-- Deploy `dist/` to `gh-pages` branch
-- Set `VITE_API_BASE_URL` as repository secret (production backend URL)
+### Frontend → GitHub Pages
+- **Trigger:** Push to `main` (changes in `frontend/` or workflow file)
+- **Build:** `npm ci && npm run build` with `VITE_API_BASE_URL` and `VITE_BASE_URL` env
+- **Deploy:** GitHub Pages via `actions/deploy-pages`
+- **URL:** `https://<user>.github.io/github-wheel-of-random/`
+- **Secret needed:** `VITE_API_BASE_URL` (production backend URL)
 
-### 2. GitHub Actions — Deploy Backend
-Create `.github/workflows/deploy-backend.yml`:
-- Trigger: push to `main`
-- Build Docker image
-- Push to Docker Hub / GitHub Container Registry
-- Deploy to Railway / Fly.io (optional, depends on target)
-
-### 3. Production Readiness
-- Add request validation (limit bounds, sanitize inputs)
-- Add structured logging (slog or zerolog)
-- Add health check endpoint (`GET /api/v1/health`)
-- Configure CORS for production domain
-- Add rate limiting to crawl endpoint
-
-### 4. Frontend Improvements
-- Multi-select dropdowns for language and topic (instead of text inputs)
-- Visual winner highlight after spin (glow, scale animation)
-- Share result button (copy project URL)
-- Responsive layout for mobile
-
-### 5. Redis Caching (Future)
-- Cache `GET /api/v1/filters` response (invalidated on crawl)
-- Cache random selections (short TTL)
-- Rate limiting counter
+### Backend → Render.com
+- **Trigger:** Push to `main` (changes in `backend/` or workflow file)
+- **Build:** Multi-stage Docker build, push to `ghcr.io`
+- **Deploy:** Render Deploy Hook (optional, requires `RENDER_DEPLOY_HOOK_URL` secret)
+- **Setup on Render:**
+  1. Create Web Service → Deploy via Docker
+  2. Image: `ghcr.io/<user>/github-wheel-of-random-backend:latest`
+  3. Add env vars: `SUPABASE_URL`, `SUPABASE_KEY`, `GITHUB_TOKEN`, `CRAWL_INTERVAL`
+  4. Copy Deploy Hook URL → GitHub secret `RENDER_DEPLOY_HOOK_URL`
