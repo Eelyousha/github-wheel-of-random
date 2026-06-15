@@ -7,6 +7,8 @@ interface Props {
   onTopicChange: (v: string) => void;
   minStars: number;
   onMinStarsChange: (v: number) => void;
+  availableLanguages: string[];
+  availableTopics: string[];
 }
 
 function parsePositiveInt(value: string, fallback: number): number {
@@ -17,7 +19,7 @@ function parsePositiveInt(value: string, fallback: number): number {
   return n;
 }
 
-export default function FilterPanel({ limit, onLimitChange, lang, onLangChange, topic, onTopicChange, minStars, onMinStarsChange }: Props) {
+export default function FilterPanel({ limit, onLimitChange, lang, onLangChange, topic, onTopicChange, minStars, onMinStarsChange, availableLanguages, availableTopics }: Props) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", margin: "16px 0" }}>
       <label>
@@ -36,11 +38,17 @@ export default function FilterPanel({ limit, onLimitChange, lang, onLangChange, 
       </label>
       <label>
         Language:
-        <input type="text" placeholder="e.g. Go" value={lang} onChange={(e) => onLangChange(e.target.value)} style={{ marginLeft: 8, width: 120 }} />
+        <input type="text" placeholder="e.g. Go" value={lang} onChange={(e) => onLangChange(e.target.value)} list="lang-suggestions" style={{ marginLeft: 8, width: 120 }} />
+        <datalist id="lang-suggestions">
+          {availableLanguages.map((l) => <option key={l} value={l} />)}
+        </datalist>
       </label>
       <label>
         Topic:
-        <input type="text" placeholder="e.g. ai" value={topic} onChange={(e) => onTopicChange(e.target.value)} style={{ marginLeft: 8, width: 120 }} />
+        <input type="text" placeholder="e.g. ai" value={topic} onChange={(e) => onTopicChange(e.target.value)} list="topic-suggestions" style={{ marginLeft: 8, width: 120 }} />
+        <datalist id="topic-suggestions">
+          {availableTopics.map((t) => <option key={t} value={t} />)}
+        </datalist>
       </label>
       <label>
         Min Stars:

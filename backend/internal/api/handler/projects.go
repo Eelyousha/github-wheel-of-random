@@ -21,11 +21,34 @@ func NewProjectHandler(pool *pgxpool.Pool) *ProjectHandler {
 	return &ProjectHandler{pool: pool}
 }
 
+// buildFilters builds WHERE clause and args from filter parameters.
+// Multiple space-separated values for language/topic produce OR conditions.
+func buildFilters(language, topic string, minStars int) (where []string, args []any, argIdx int) {
+	where = []string{"1=1"}
+	argIdx = 1
+
+	for _, lang := range strings.Fields(language) {
+		where = append(where, fmt.Sprintf("LOWER(language) = LOWER($%d)", argIdx))
+		args = append(args, lang)
+		argIdx++
+	}
+	for _, t := range strings.Fields(topic) {
+		where = append(where, fmt.Sprintf("$%d = ANY(topics)", argIdx))
+		args = append(args, t)
+		argIdx++
+	}
+	if minStars > 0 {
+		where = append(where, fmt.Sprintf("stars >= $%d", argIdx))
+		args = append(args, minStars)
+		argIdx++
+	}
+
+	return
+}
+
 func (h *ProjectHandler) List(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
-	language := c.Query("lang")
-	topic := c.Query("topic")
 	minStars, _ := strconv.Atoi(c.Query("min_stars", "0"))
 
 	if limit < 1 || limit > 100 {
@@ -35,26 +58,7 @@ func (h *ProjectHandler) List(c *fiber.Ctx) error {
 		page = 1
 	}
 
-	where := []string{"1=1"}
-	args := []any{}
-	argIdx := 1
-
-	if language != "" {
-		where = append(where, fmt.Sprintf("LOWER(language) = LOWER($%d)", argIdx))
-		args = append(args, language)
-		argIdx++
-	}
-	if topic != "" {
-		where = append(where, fmt.Sprintf("$%d = ANY(topics)", argIdx))
-		args = append(args, topic)
-		argIdx++
-	}
-	if minStars > 0 {
-		where = append(where, fmt.Sprintf("stars >= $%d", argIdx))
-		args = append(args, minStars)
-		argIdx++
-	}
-
+	where, args, argIdx := buildFilters(c.Query("lang"), c.Query("topic"), minStars)
 	offset := (page - 1) * limit
 
 	query := fmt.Sprintf(
@@ -79,33 +83,13 @@ func (h *ProjectHandler) List(c *fiber.Ctx) error {
 
 func (h *ProjectHandler) Random(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
-	language := c.Query("lang")
-	topic := c.Query("topic")
 	minStars, _ := strconv.Atoi(c.Query("min_stars", "0"))
 
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
 
-	where := []string{"1=1"}
-	args := []any{}
-	argIdx := 1
-
-	if language != "" {
-		where = append(where, fmt.Sprintf("LOWER(language) = LOWER($%d)", argIdx))
-		args = append(args, language)
-		argIdx++
-	}
-	if topic != "" {
-		where = append(where, fmt.Sprintf("$%d = ANY(topics)", argIdx))
-		args = append(args, topic)
-		argIdx++
-	}
-	if minStars > 0 {
-		where = append(where, fmt.Sprintf("stars >= $%d", argIdx))
-		args = append(args, minStars)
-		argIdx++
-	}
+	where, args, argIdx := buildFilters(c.Query("lang"), c.Query("topic"), minStars)
 
 	query := fmt.Sprintf(
 		`SELECT id, full_name, name, owner, description, stars, language, topics, html_url, avatar_url, last_updated

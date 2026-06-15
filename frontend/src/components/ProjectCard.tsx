@@ -7,7 +7,8 @@ interface Props {
 const COLORS = ["#f0db4f", "#e34c26", "#563d7c", "#3178c6", "#00add8", "#f29111", "#cc6699", "#6cc24a"];
 
 export default function ProjectCard({ project }: Props) {
-  const color = COLORS[project.topics.length % COLORS.length] || "#888";
+  const color = COLORS[(project.topics || []).length % COLORS.length] || "#888";
+  const topics = project.topics || [];
 
   return (
     <div style={{
@@ -34,9 +35,9 @@ export default function ProjectCard({ project }: Props) {
           {project.language && <span style={{ background: color, width: 12, height: 12, borderRadius: "50%", display: "inline-block" }} />}
           {project.language && <span>{project.language}</span>}
         </div>
-        {project.topics.length > 0 && (
+        {topics.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-            {project.topics.slice(0, 5).map((t) => (
+            {topics.slice(0, 5).map((t) => (
               <span key={t} style={{ background: "#e8f0fe", color: "#1a73e8", padding: "1px 6px", borderRadius: 10, fontSize: 11 }}>
                 {t}
               </span>
